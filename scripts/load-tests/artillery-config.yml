@@ -1,0 +1,183 @@
+config:
+  target: 'http://localhost:3000'
+  phases:
+    # Warm up phase
+    - duration: 30
+      arrivalRate: 5
+      name: "Warm up"
+    # Ramp up phase
+    - duration: 60
+      arrivalRate: 10
+      rampTo: 50
+      name: "Ramp up"
+    # Sustained load phase
+    - duration: 120
+      arrivalRate: 50
+      name: "Sustained load"
+    # Cool down phase
+    - duration: 30
+      arrivalRate: 50
+      rampTo: 5
+      name: "Cool down"
+  
+  defaults:
+    headers:
+      Content-Type: 'application/json'
+      User-Agent: 'Artillery Load Test'
+  
+  # Plugins for enhanced reporting
+  plugins:
+    metrics-by-endpoint:
+      useOnlyRequestNames: true
+    
+  # Performance thresholds
+  ensure:
+    thresholds:
+      - http.response_time.p95: 2000
+      - http.response_time.p99: 5000
+      - http.request_rate: 40
+
+# Test scenarios
+scenarios:
+  # Authentication flow testing
+  - name: "User Authentication Flow"
+    weight: 25
+    flow:
+      - post:
+          url: "/api/auth/login"
+          name: "Login User"
+          json:
+            email: "user@example.com"
+            password: "password"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+          expect:
+            - statusCode: 200
+            - hasProperty: "token"
+      
+      - get:
+          url: "/api/auth/verify"
+          name: "Verify Token"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # Order management testing
+  - name: "Order Management Flow"
+    weight: 30
+    flow:
+      # Login first
+      - post:
+          url: "/api/auth/login"
+          name: "Login for Orders"
+          json:
+            email: "user@example.com"
+            password: "password"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      # Get existing orders
+      - get:
+          url: "/api/orders"
+          name: "Get Orders"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      # Create new order
+      - post:
+          url: "/api/orders"
+          name: "Create Order"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            customerName: "Load Test User"
+            customerEmail: "loadtest@example.com"
+            items:
+              - name: "Test Product {{ $randomInt(1, 100) }}"
+                quantity: "{{ $randomInt(1, 5) }}"
+                price: "{{ $randomInt(10, 100) }}.99"
+            total: "{{ $randomInt(50, 500) }}.99"
+            shippingAddress: "{{ $randomInt(100, 999) }} Test Street, Test City, TS {{ $randomInt(10000, 99999) }}"
+          expect:
+            - statusCode: 201
+
+  # Payment processing testing
+  - name: "Payment Processing Flow"
+    weight: 20
+    flow:
+      - post:
+          url: "/api/auth/login"
+          name: "Login for Payments"
+          json:
+            email: "user@example.com"
+            password: "password"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - get:
+          url: "/api/payments"
+          name: "Get Payments"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+      
+      - post:
+          url: "/api/payments/process"
+          name: "Process Payment"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          json:
+            orderId: "{{ $randomInt(1, 1000) }}"
+            amount: "{{ $randomInt(10, 500) }}.99"
+            currency: "usd"
+            method: "stripe"
+            customerEmail: "loadtest@example.com"
+          expect:
+            - statusCode: 201
+
+  # File operations testing
+  - name: "File Operations Flow"
+    weight: 15
+    flow:
+      - post:
+          url: "/api/auth/login"
+          name: "Login for Files"
+          json:
+            email: "user@example.com"
+            password: "password"
+          capture:
+            - json: "$.token"
+              as: "authToken"
+      
+      - get:
+          url: "/api/files"
+          name: "Get Files"
+          headers:
+            Authorization: "Bearer {{ authToken }}"
+          expect:
+            - statusCode: 200
+
+  # Health checks testing
+  - name: "Health Checks"
+    weight: 10
+    flow:
+      - get:
+          url: "/api/health/database"
+          name: "Database Health"
+          expect:
+            - statusCode: 200
+            - json: "$.database.status"
+              value: "healthy"
+      
+      - get:
+          url: "/api/health"
+          name: "Service Health"
+          expect:
+            - statusCode: 200

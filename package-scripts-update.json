@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "test:api": "node scripts/api-tests/newman-runner.js",
+    "test:api:dev": "scripts/run-api-tests.sh --environment development",
+    "test:api:prod": "scripts/run-api-tests.sh --environment production",
+    "test:load": "scripts/run-api-tests.sh --load-tests --users 50 --duration 120",
+    "test:security": "scripts/run-api-tests.sh --security-tests",
+    "test:all": "scripts/run-api-tests.sh --load-tests --security-tests",
+    "postman:install": "npm install -g newman",
+    "artillery:install": "npm install -g artillery"
+  }
+}
